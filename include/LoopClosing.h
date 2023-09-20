@@ -50,8 +50,9 @@ public:
         Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
 
 public:
-
-    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
+    bool bDisableLoopClosure = false;
+    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale, 
+                const bool disableLoopDetection = false);
 
     void SetTracker(Tracking* pTracker);
 
@@ -79,8 +80,6 @@ public:
     void RequestFinish();
 
     bool isFinished();
-
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 protected:
 
@@ -141,9 +140,6 @@ protected:
 
     // Fix scale in the stereo/RGB-D case
     bool mbFixScale;
-
-
-    bool mnFullBAIdx;
 };
 
 } //namespace ORB_SLAM

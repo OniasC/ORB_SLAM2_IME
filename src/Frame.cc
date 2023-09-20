@@ -57,13 +57,15 @@ Frame::Frame(const Frame &frame)
         SetPose(frame.mTcw);
 }
 
-
-Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+// Constructor for stereo cameras.
+Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp,
+             ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc,
+             cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight), mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
      mpReferenceKF(static_cast<KeyFrame*>(NULL))
 {
     // Frame ID
-    mnId=nNextId++;
+    mnId = nNextId++;
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();
@@ -80,10 +82,10 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     threadLeft.join();
     threadRight.join();
 
-    N = mvKeys.size();
-
     if(mvKeys.empty())
         return;
+
+    N = mvKeys.size();
 
     UndistortKeyPoints();
 
@@ -115,8 +117,10 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
     AssignFeaturesToGrid();
 }
-
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+// Constructor for RGB-D cameras.
+Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp,
+             ORBextractor* extractor, ORBVocabulary* voc,
+             cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
@@ -170,8 +174,11 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     AssignFeaturesToGrid();
 }
 
-
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+// Constructor for Monocular cameras.
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp,
+             ORBextractor* extractor,ORBVocabulary* voc,
+             cv::Mat &K, cv::Mat &distCoef,
+             const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
@@ -311,7 +318,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
     // Predict scale in the image
-    const int nPredictedLevel = pMP->PredictScale(dist,this);
+    const int nPredictedLevel = pMP->PredictScale(dist,mfLogScaleFactor);
 
     // Data used by the tracking
     pMP->mbTrackInView = true;
@@ -468,8 +475,6 @@ void Frame::ComputeStereoMatches()
     mvuRight = vector<float>(N,-1.0f);
     mvDepth = vector<float>(N,-1.0f);
 
-    const int thOrbDist = (ORBmatcher::TH_HIGH+ORBmatcher::TH_LOW)/2;
-
     const int nRows = mpORBextractorLeft->mvImagePyramid[0].rows;
 
     //Assign keypoints to row table
@@ -494,7 +499,7 @@ void Frame::ComputeStereoMatches()
 
     // Set limits for search
     const float minZ = mb;
-    const float minD = 0;
+    const float minD = -3;
     const float maxD = mbf/minZ;
 
     // For each left keypoint search a match in the right image
@@ -549,7 +554,7 @@ void Frame::ComputeStereoMatches()
         }
 
         // Subpixel match by correlation
-        if(bestDist<thOrbDist)
+        if(bestDist<ORBmatcher::TH_HIGH)
         {
             // coordinates in image pyramid at keypoint scale
             const float uR0 = mvKeysRight[bestIdxR].pt.x;
@@ -560,7 +565,8 @@ void Frame::ComputeStereoMatches()
 
             // sliding window search
             const int w = 5;
-            cv::Mat IL = mpORBextractorLeft->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduL-w,scaleduL+w+1);
+            cv::cuda::GpuMat gMat = mpORBextractorLeft->mvImagePyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduL - w, scaleduL + w + 1);
+            cv::Mat IL(gMat.rows, gMat.cols, gMat.type(), gMat.data, gMat.step);
             IL.convertTo(IL,CV_32F);
             IL = IL - IL.at<float>(w,w) *cv::Mat::ones(IL.rows,IL.cols,CV_32F);
 
@@ -577,7 +583,8 @@ void Frame::ComputeStereoMatches()
 
             for(int incR=-L; incR<=+L; incR++)
             {
-                cv::Mat IR = mpORBextractorRight->mvImagePyramid[kpL.octave].rowRange(scaledvL-w,scaledvL+w+1).colRange(scaleduR0+incR-w,scaleduR0+incR+w+1);
+                cv::cuda::GpuMat gMat = mpORBextractorRight->mvImagePyramid[kpL.octave].rowRange(scaledvL - w, scaledvL + w + 1).colRange(scaleduR0 + incR - w, scaleduR0 + incR + w + 1);
+                cv::Mat IR(gMat.rows, gMat.cols, gMat.type(), gMat.data, gMat.step);
                 IR.convertTo(IR,CV_32F);
                 IR = IR - IR.at<float>(w,w) *cv::Mat::ones(IR.rows,IR.cols,CV_32F);
 
@@ -609,7 +616,7 @@ void Frame::ComputeStereoMatches()
 
             float disparity = (uL-bestuR);
 
-            if(disparity>=minD && disparity<maxD)
+            if(disparity>=0 && disparity<maxD)
             {
                 if(disparity<=0)
                 {

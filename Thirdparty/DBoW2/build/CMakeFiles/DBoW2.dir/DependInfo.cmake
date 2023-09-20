@@ -4,19 +4,18 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DBoW2/BowVector.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/BowVector.cpp.o"
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DBoW2/FORB.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/FORB.cpp.o"
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DBoW2/FeatureVector.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/FeatureVector.cpp.o"
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DBoW2/ScoringObject.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/ScoringObject.cpp.o"
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DUtils/Random.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DUtils/Random.cpp.o"
-  "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/DUtils/Timestamp.cpp" "/home/onias/Documents/ORB_SLAM2/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DUtils/Timestamp.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DBoW2/BowVector.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/BowVector.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DBoW2/FORB.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/FORB.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DBoW2/FeatureVector.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/FeatureVector.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DBoW2/ScoringObject.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DBoW2/ScoringObject.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DUtils/Random.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DUtils/Random.cpp.o"
+  "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/DUtils/Timestamp.cpp" "/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir/DUtils/Timestamp.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
-  "/opt/ros/kinetic/include/opencv-3.3.1-dev"
-  "/opt/ros/kinetic/include/opencv-3.3.1-dev/opencv"
+  "/usr/include/opencv4"
   )
 
 # Targets to which this target links.

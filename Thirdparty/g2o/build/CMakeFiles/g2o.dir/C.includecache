@@ -1,4 +1,4 @@
-#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
 
 #IncludeRegexScan: ^.*$
 
@@ -6,11 +6,11 @@
 
 #IncludeRegexTransform: 
 
-/home/onias/Documents/ORB_SLAM2/Thirdparty/g2o/g2o/stuff/os_specific.c
+/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/g2o/g2o/stuff/os_specific.c
 os_specific.h
-/home/onias/Documents/ORB_SLAM2/Thirdparty/g2o/g2o/stuff/os_specific.h
+/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/g2o/g2o/stuff/os_specific.h
 
-/home/onias/Documents/ORB_SLAM2/Thirdparty/g2o/g2o/stuff/os_specific.h
+/home/oniasc/pfc/ORB_SLAM2_CUDA/Thirdparty/g2o/g2o/stuff/os_specific.h
 stdio.h
 -
 stdlib.h

@@ -26,12 +26,15 @@
 
 #include<opencv2/core/core.hpp>
 
+
 #include<System.h>
 
 using namespace std;
 
 void LoadImages(const string &strImagePath, const string &strPathTimes,
                 vector<string> &vstrImages, vector<double> &vTimeStamps);
+
+void SaveFrameTimesCsv(vector<float> &vTimeStamps, const string &frameTimesPath);
 
 int main(int argc, char **argv)
 {
@@ -40,7 +43,8 @@ int main(int argc, char **argv)
         cerr << endl << "Usage: ./mono_tum path_to_vocabulary path_to_settings path_to_image_folder path_to_times_file" << endl;
         return 1;
     }
-
+    bool useGui = false;
+    bool disableLC = false;
     // Retrieve paths to images
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;
@@ -55,7 +59,7 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
+    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR, useGui, disableLC);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -65,12 +69,14 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
+    std::remove("test_results/tegrastats.txt");
+    system("tegrastats --interval 10 --logfile test_results/tegrastats.txt &");
     // Main loop
     cv::Mat im;
     for(int ni=0; ni<nImages; ni++)
     {
         // Read image from file
-        im = cv::imread(vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
+        im = cv::imread(vstrImageFilenames[ni],-1);
         double tframe = vTimestamps[ni];
 
         if(im.empty())
@@ -80,16 +86,16 @@ int main(int argc, char **argv)
             return 1;
         }
 
-#ifdef COMPILEDWITHC11
+#if COMPILEDWITHC11
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
-
+        //std::cout << "frame: " << ni << std::endl;
         // Pass the image to the SLAM system
         SLAM.TrackMonocular(im,tframe);
 
-#ifdef COMPILEDWITHC11
+#if COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 #else
         std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
@@ -112,7 +118,8 @@ int main(int argc, char **argv)
 
     // Stop all threads
     SLAM.Shutdown();
-
+    string myCsv = "test_results/savedtimestamps.csv";
+    SaveFrameTimesCsv(vTimesTrack, myCsv);
     // Tracking time statistics
     sort(vTimesTrack.begin(),vTimesTrack.end());
     float totaltime = 0;
@@ -126,7 +133,10 @@ int main(int argc, char **argv)
 
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    system("tegrastats --stop");
 
+    SLAM.CreatePCD("pointcloud.pcd");
+    
     return 0;
 }
 
@@ -152,4 +162,17 @@ void LoadImages(const string &strImagePath, const string &strPathTimes,
 
         }
     }
+}
+
+void SaveFrameTimesCsv(vector<float> &vTimeStamps, const string &frameTimesPath)
+{
+    std::ofstream myFile;
+    myFile.open(frameTimesPath);
+    myFile << "frame, frameRate\n";
+    for (int i = 0 ; i<vTimeStamps.size();i++ )
+    {
+        myFile << i << "," << vTimeStamps[i]<<"\n";
+    }
+    myFile.close();
+    
 }

@@ -18,20 +18,28 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+#include <unistd.h>
 
 #include "System.h"
 #include "Converter.h"
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
+#include <time.h>
+
+bool has_suffix(const std::string &str, const std::string &suffix) {
+  std::size_t index = str.find(suffix, str.size() - suffix.size());
+  return (index != std::string::npos);
+}
 
 namespace ORB_SLAM2
 {
+bool bEnableViewer;
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer):mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false)
+               const bool bUseViewer, const bool disableLoopDetection)
+  : mSensor(sensor), mbReset(false), mbActivateLocalizationMode(false)
+  , mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
     cout << endl <<
@@ -57,19 +65,26 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
        exit(-1);
     }
 
-
     //Load ORB Vocabulary
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
+    clock_t tStart = clock();
     mpVocabulary = new ORBVocabulary();
-    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+    //bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+    bool bVocLoad = false; // chose loading method based on file extension
+    if (has_suffix(strVocFile, ".txt"))
+	  bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+	else
+	  bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
+
     if(!bVocLoad)
     {
         cerr << "Wrong path to vocabulary. " << endl;
-        cerr << "Falied to open at: " << strVocFile << endl;
+        cerr << "Failed to open at: " << strVocFile << endl;
         exit(-1);
     }
-    cout << "Vocabulary loaded!" << endl << endl;
+    //cout << "Vocabulary loaded!" << endl << endl;
+    printf("Vocabulary loaded in %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 
     //Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
@@ -81,6 +96,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpFrameDrawer = new FrameDrawer(mpMap);
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
+
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
@@ -91,12 +107,14 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
 
     //Initialize the Loop Closing thread and launch
-    mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
+    mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, 
+                                    mSensor!=MONOCULAR, disableLoopDetection);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     //Initialize the Viewer thread and launch
+    bEnableViewer = bUseViewer;
     if(bUseViewer)
-    {
+    {    
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
@@ -155,13 +173,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
-
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState = mpTracker->mState;
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-    return Tcw;
+    return mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
 }
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
@@ -206,13 +218,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,timestamp);
-
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState = mpTracker->mState;
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-    return Tcw;
+    return mpTracker->GrabImageRGBD(im,depthmap,timestamp);
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
@@ -257,14 +263,7 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
-
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState = mpTracker->mState;
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-
-    return Tcw;
+    return mpTracker->GrabImageMonocular(im,timestamp);
 }
 
 void System::ActivateLocalizationMode()
@@ -279,19 +278,6 @@ void System::DeactivateLocalizationMode()
     mbDeactivateLocalizationMode = true;
 }
 
-bool System::MapChanged()
-{
-    static int n=0;
-    int curn = mpMap->GetLastBigChangeIdx();
-    if(n<curn)
-    {
-        n=curn;
-        return true;
-    }
-    else
-        return false;
-}
-
 void System::Reset()
 {
     unique_lock<mutex> lock(mMutexReset);
@@ -302,31 +288,40 @@ void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    if(mpViewer)
+
+    if (bEnableViewer)
     {
         mpViewer->RequestFinish();
-        while(!mpViewer->isFinished())
+        // Wait until all thread have effectively stopped
+        while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished()  ||
+            !mpViewer->isFinished()      || mpLoopCloser->isRunningGBA())
+        {
             usleep(5000);
+        }
     }
-
-    // Wait until all thread have effectively stopped
-    while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
+    else
     {
-        usleep(5000);
+        // Wait until all thread have effectively stopped
+        while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished()  || mpLoopCloser->isRunningGBA())
+        {
+            usleep(5000);
+        }
     }
 
-    if(mpViewer)
-        pangolin::BindToContext("ORB-SLAM2: Map Viewer");
+    // Carefully handle threads
+    if (bEnableViewer)
+    {    
+        mptViewer->join();
+    }
+    mptLoopClosing->join();
+    mptLocalMapping->join();
+
+    pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
 
 void System::SaveTrajectoryTUM(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
-    {
-        cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
-        return;
-    }
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
@@ -419,11 +414,6 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 void System::SaveTrajectoryKITTI(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
-    {
-        cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
-        return;
-    }
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
@@ -471,25 +461,20 @@ void System::SaveTrajectoryKITTI(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
-int System::GetTrackingState()
+const vector<MapPoint*> System::GetmpMapAllMapPoints(void)
+{ 
+    return mpMap->GetAllMapPoints();
+}
+const vector<MapPoint*> System::GetmpMapReferenceMapPoints(void)
 {
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackingState;
+    return mpMap->GetReferenceMapPoints();
 }
 
-vector<MapPoint*> System::GetTrackedMapPoints()
+FrameDrawer* System::GetpFrameDrawer(void)
 {
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackedMapPoints;
+    return mpFrameDrawer;
 }
 
-vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
-{
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackedKeyPointsUn;
-}
-
-//added later
 void System::CreatePCD(const string &filename)
 {
   cout << endl << "Saving map points to " << filename << " ..." << endl;
@@ -543,4 +528,6 @@ void System::CreatePCD(const string &filename)
         cout << endl << "Map Points saved!" << endl;
 }
 
-} //namespace ORB_SLAM
+}
+
+//namespace ORB_SLAM

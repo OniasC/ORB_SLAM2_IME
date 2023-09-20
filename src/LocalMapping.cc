@@ -18,6 +18,8 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <unistd.h>
+
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
@@ -644,7 +646,9 @@ void LocalMapping::KeyFrameCulling()
             continue;
         const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
 
-        int nObs = 3;
+        int /*nObs = 2;
+        if(mbMonocular)*/
+            nObs = 3;
         const int thObs=nObs;
         int nRedundantObservations=0;
         int nMPs=0;

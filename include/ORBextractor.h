@@ -18,16 +18,19 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef ORBEXTRACTOR_H
-#define ORBEXTRACTOR_H
+#pragma once
+#ifndef __ORBEXTRACTOR_HPP__
+#define __ORBEXTRACTOR_HPP__
 
 #include <vector>
 #include <list>
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudafilters.hpp>
+#include <cuda/Fast.hpp>
+#include <cuda/Orb.hpp>
 
-
-namespace ORB_SLAM2
-{
+namespace ORB_SLAM2 {
 
 class ExtractorNode
 {
@@ -45,11 +48,10 @@ public:
 class ORBextractor
 {
 public:
-    
+
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
-    ORBextractor(int nfeatures, float scaleFactor, int nlevels,
-                 int iniThFAST, int minThFAST);
+    ORBextractor(int nfeatures, float scaleFactor, int nlevels, int iniThFAST, int minThFAST);
 
     ~ORBextractor(){}
 
@@ -61,10 +63,12 @@ public:
       cv::OutputArray descriptors);
 
     int inline GetLevels(){
-        return nlevels;}
+        return nlevels;
+    }
 
     float inline GetScaleFactor(){
-        return scaleFactor;}
+        return scaleFactor;
+    }
 
     std::vector<float> inline GetScaleFactors(){
         return mvScaleFactor;
@@ -82,17 +86,23 @@ public:
         return mvInvLevelSigma2;
     }
 
-    std::vector<cv::Mat> mvImagePyramid;
+    // I assume all frames are of the same dimension
+    bool mvImagePyramidAllocatedFlag;
+    std::vector<cv::cuda::GpuMat>  mvImagePyramid;
+    std::vector<cv::cuda::GpuMat>  mvImagePyramidBorder;
+
 
 protected:
 
     void ComputePyramid(cv::Mat image);
-    void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);    
-    std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
-                                           const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
+    void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+    std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int minX,
+                                    const int maxX, const int minY, const int maxY, const int nFeatures, const int level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
     std::vector<cv::Point> pattern;
+    cv::Ptr<cv::cuda::Filter> mpGaussianFilter;
+    cuda::Stream mcvStream;
 
     int nfeatures;
     double scaleFactor;
@@ -105,12 +115,15 @@ protected:
     std::vector<int> umax;
 
     std::vector<float> mvScaleFactor;
-    std::vector<float> mvInvScaleFactor;    
+    std::vector<float> mvInvScaleFactor;
     std::vector<float> mvLevelSigma2;
     std::vector<float> mvInvLevelSigma2;
+
+    cuda::GpuFast gpuFast;
+    cuda::IC_Angle ic_angle;
+    cuda::GpuOrb gpuOrb;
 };
 
-} //namespace ORB_SLAM
+}  /* namespace ORB_SLAM2 */
 
 #endif
-
